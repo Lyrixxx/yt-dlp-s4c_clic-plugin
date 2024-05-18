@@ -1,5 +1,3 @@
-# s4c_clic.py
-
 from __future__ import unicode_literals
 from yt_dlp.extractor.common import InfoExtractor
 from yt_dlp.utils import (
@@ -57,21 +55,42 @@ class S4CClicBaseIE(InfoExtractor):
         return None
 
     def _extract_episode_number_from_text(self, text):
-        mobj = re.match(r'^(\d+)\.\s*', text)
+        mobj = re.match(r'^(\d+)[;:,\-_\.\s]*', text)
         if mobj:
-            return int(mobj.group(1)), re.sub(r'^\d+\.\s*', '', text).strip()
+            return int(mobj.group(1)), re.sub(r'^\d+[;:,\-_\.\s]*', '', text).strip()
         return None, text
 
     def _extract_season_number_from_title(self, title):
-        mobj = re.search(r' - Cyfres (\d+)', title)
+        # First, try to match with separators
+        mobj = re.search(r'\s*[-:;,_\.\s]*\s*(Cyfres|Season)\s*X?(\d+)', title, re.IGNORECASE)
         if mobj:
-            season_number = int(mobj.group(1))
+            season_number = int(mobj.group(2))
             title = title.replace(mobj.group(0), '').strip()
             return season_number, title
+
+        # Fallback to match without separators
+        mobj = re.search(r'(Cyfres|Season)\s*X?(\d+)', title, re.IGNORECASE)
+        if mobj:
+            season_number = int(mobj.group(2))
+            title = title.replace(mobj.group(0), '').strip()
+            return season_number, title
+
         return None, title
 
     def _extract_episode_number(self, text):
         mobj = re.search(r'\bE(\d+)\b', text)
+        if mobj:
+            return int(mobj.group(1))
+        return None
+
+    def _extract_episode_number_from_filename(self, filename):
+        mobj = re.search(r'[_-](?:pennod|episode)_?(\d+)', filename, re.IGNORECASE)
+        if mobj:
+            return int(mobj.group(1))
+        return None
+
+    def _extract_episode_number_from_thumbnail(self, thumbnail_url):
+        mobj = re.search(r'_P(\d+)', thumbnail_url)
         if mobj:
             return int(mobj.group(1))
         return None
@@ -121,7 +140,11 @@ class S4CClicBaseIE(InfoExtractor):
 
         thumbnail_url = episode.get('thumbnail_url', '')
         if episode_number is None:
-            episode_number = self._extract_episode_number(thumbnail_url)
+            episode_number = self._extract_episode_number_from_thumbnail(thumbnail_url)
+
+        # Extract episode number from filename
+        if episode_number is None and mpg_filename:
+            episode_number = self._extract_episode_number_from_filename(mpg_filename)
 
         # Fetch additional data including filename and poster
         config_url = f'{self._PLAYER_API_URL}?programme_id={programme_id}&signed=0&lang=cy&mode=od&appId=clic&streamName=&env=live'
@@ -166,6 +189,10 @@ class S4CClicBaseIE(InfoExtractor):
             modified_timestamp = parse_welsh_date(clic_aired)
             modified_date = format_date(modified_timestamp)
 
+        # Default season number to 0 if not set
+        if season_number is None:
+            season_number = 0
+
         return {
             'id': programme_id,
             'title': title,
@@ -188,6 +215,7 @@ class S4CClicBaseIE(InfoExtractor):
             'modified_timestamp': modified_timestamp,
             'modified_date': modified_date,
         }
+
 
 class S4CClicSeriesIE(S4CClicBaseIE):
     IE_NAME = 's4c:clic:series'
