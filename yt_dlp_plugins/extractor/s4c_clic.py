@@ -49,6 +49,8 @@ class S4CClicBaseIE(InfoExtractor):
         raise NotImplementedError('This method must be implemented by subclasses')
 
     def _extract_episode_number_from_title(self, title):
+        if not isinstance(title, str):
+            return None
         mobj = re.match(r'^(?:Pennod|Episode)\s*(\d+)', title)
         if mobj:
             return int(mobj.group(1))
@@ -61,6 +63,8 @@ class S4CClicBaseIE(InfoExtractor):
         return None, text
 
     def _extract_season_number_from_title(self, title):
+        if not isinstance(title, str):
+            return None, title
         # First, try to match with separators
         mobj = re.search(r'\s*[-:;,_\.\s]*\s*(Cyfres|Season)\s*X?(\d+)', title, re.IGNORECASE)
         if mobj:
@@ -118,12 +122,16 @@ class S4CClicBaseIE(InfoExtractor):
 
     def _extract_episode_info(self, episode, programme_id):
         series_title = episode.get('series_title') or episode.get('programme_title', 'No Title')
+        if not isinstance(series_title, str):
+            series_title = 'No Title'
         description = episode.get('full_billing', 'No Description')
         duration = int(episode.get('duration', 0)) * 60  # Convert minutes to seconds
 
         # Parse the title and extract season number if available
         season_number, title = self._extract_season_number_from_title(series_title)
         programme_title = episode.get('programme_title', '')
+        if not isinstance(programme_title, str):
+            programme_title = ''
         episode_number = self._extract_episode_number_from_title(programme_title)
         if episode_number is None:
             episode_number, programme_title = self._extract_episode_number_from_text(programme_title)
@@ -240,7 +248,7 @@ class S4CClicSeriesIE(S4CClicBaseIE):
 
 class S4CClicProgrammeIE(S4CClicBaseIE):
     IE_NAME = 's4c:clic:programme'
-    _VALID_URL = r'https?://(?:www\.)?s4c\.cymru/clic/programme/(?P<id>\d+)'
+    _VALID_URL = r'https?://(?:www\.)?s4c.cymru/clic/programme/(?P<id>\d+)'
 
     def _extract_video_info(self, programme_id):
         programme_data = self._download_json(
@@ -269,7 +277,7 @@ class S4CClicProgrammeIE(S4CClicBaseIE):
 
 class S4CClicProgrammeIndividualIE(S4CClicBaseIE):
     IE_NAME = 's4c:clic:programme:individual'
-    _VALID_URL = r'https?://(?:www\.)?s4c\.cymru/clic/programme/(?P<id>\d+)'
+    _VALID_URL = r'https?://(?:www\.)?s4c.cymru/clic/programme/(?P<id>\d+)'
 
     def _extract_video_info(self, programme_id):
         programme_data = self._download_json(
